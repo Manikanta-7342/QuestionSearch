@@ -1,7 +1,9 @@
 import streamlit as st
-from PyPDF2 import PdfReader
+from PyPDF4 import PdfFileReader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 import os
+import textract
+import docx2txt
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 import google.generativeai as genai
 from langchain.vectorstores import FAISS
@@ -16,17 +18,30 @@ genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 
 
-def get_pdf_text(pdf_docs):
+def get_file_text(file_docs):
     text=""
-    for pdf in pdf_docs:
-        pdf_reader= PdfReader(pdf)
-        for page in pdf_reader.pages:
-            text+= page.extract_text()
+    for file in file_docs:
+        ext = file.name.split(".")[-1]
+        if ext == "doc":
+            text += textract.process(file).decode()
+        elif ext == "docx":
+            text += docx2txt.process(file)
+        elif ext == "pdf":
+            pdf_reader= PdfFileReader(file)
+            for page in range(pdf_reader.getNumPages()):
+                # Getting the page object
+                pdf_page = pdf_reader.getPage(page)
+                # Extracting the text from the page object
+                text += pdf_page.extractText()
+        elif ext == "txt":
+            text += open(file).read()
+        else:
+            print(f"{file} is invalid file")
     return  text
 
 
 
-def get_text_chunks(text):
+def get_text_chunks(text: str):
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     chunks = text_splitter.split_text(text)
     return chunks
@@ -42,7 +57,7 @@ def get_conversational_chain():
 
     prompt_template = """
     Answer the question as detailed as possible from the provided context, make sure to provide all the details, if the answer is not in
-    provided context just say, "answer is not available in the context", don't provide the wrong answer\n\n
+    provided context just say, "answer is not available in the context", then provide the answer by your knowledge under heading of context-free-output\n\n
     Context:\n {context}?\n
     Question: \n{question}\n
 
@@ -59,7 +74,7 @@ def get_conversational_chain():
 
 
 
-def user_input(user_question):
+def user_input(user_question: str):
     embeddings = GoogleGenerativeAIEmbeddings(model = "models/embedding-001")
     
     new_db = FAISS.load_local("faiss_index", embeddings)
@@ -72,7 +87,6 @@ def user_input(user_question):
         {"input_documents":docs, "question": user_question}
         , return_only_outputs=True)
 
-    print(response)
     st.write("Reply: ", response["output_text"])
 
 
@@ -89,10 +103,10 @@ def main():
 
     with st.sidebar:
         st.title("Menu:")
-        pdf_docs = st.file_uploader("Upload your PDF Files and Click on the Submit & Process Button", accept_multiple_files=True)
+        file_docs = st.file_uploader("Upload your PDF Files and Click on the Submit & Process Button", accept_multiple_files=True)
         if st.button("Submit & Process"):
             with st.spinner("Processing..."):
-                raw_text = get_pdf_text(pdf_docs)
+                raw_text = get_file_text(file_docs)
                 text_chunks = get_text_chunks(raw_text)
                 get_vector_store(text_chunks)
                 st.success("Done")
