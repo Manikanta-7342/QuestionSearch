@@ -103,7 +103,7 @@ def main():
 
     with st.sidebar:
         st.title("Menu:")
-        file_docs = st.file_uploader("Upload your PDF Files and Click on the Submit & Process Button", accept_multiple_files=True)
+        file_docs = st.file_uploader("Upload your PDF Files and Click on the Submit & Process Button", accept_multiple_files=True, type=['pdf','doc','txt','docx'])
         if st.button("Submit & Process"):
             with st.spinner("Processing..."):
                 raw_text = get_file_text(file_docs)
