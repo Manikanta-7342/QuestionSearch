@@ -2,7 +2,8 @@ streamlit
 google-generativeai
 python-dotenv
 langchain
-PyPDF4
 docx2txt
-textract
 faiss-cpu
+PyPDF2
+pdfminer.six==20221105
+pdfplumber

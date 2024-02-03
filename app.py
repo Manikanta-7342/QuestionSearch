@@ -1,9 +1,9 @@
 import streamlit as st
-from PyPDF4 import PdfFileReader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 import os
-import textract
+from utils.pdfReader import pdf_extract
 import docx2txt
+import textract
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 import google.generativeai as genai
 from langchain.vectorstores import FAISS
@@ -24,15 +24,10 @@ def get_file_text(file_docs):
         ext = file.name.split(".")[-1]
         if ext == "doc":
             text += textract.process(file).decode()
-        elif ext == "docx":
+        if ext == "docx":
             text += docx2txt.process(file)
         elif ext == "pdf":
-            pdf_reader= PdfFileReader(file)
-            for page in range(pdf_reader.getNumPages()):
-                # Getting the page object
-                pdf_page = pdf_reader.getPage(page)
-                # Extracting the text from the page object
-                text += pdf_page.extractText()
+            text += pdf_extract(file)
         elif ext == "txt":
             text += open(file).read()
         else:
@@ -78,7 +73,8 @@ def user_input(user_question: str):
     embeddings = GoogleGenerativeAIEmbeddings(model = "models/embedding-001")
     
     new_db = FAISS.load_local("faiss_index", embeddings)
-    docs = new_db.similarity_search(user_question)
+    docs = new_db.similarity_search_with_score(user_question)
+    st.write(docs)
 
     chain = get_conversational_chain()
 
@@ -94,7 +90,7 @@ def user_input(user_question: str):
 
 def main():
     st.set_page_config("Chat PDF")
-    st.header("Chat with PDF using Gemini💁")
+    st.header("Chat with Documents using Gemini-Pro💁")
 
     user_question = st.text_input("Ask a Question from the PDF Files")
 
